@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\DTO\PaymentLinkDTO;
+use App\DTO\PaymentLinkEditDTO;
 use App\Models\Empresa\EmpresaLinksPagamento;
 use App\Resources\LinkPagamento\LinkPagamentoUserResource;
 use Carbon\Carbon;
@@ -10,6 +11,7 @@ use GuzzleHttp\Client;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PaymentLinkService
 {
@@ -33,6 +35,7 @@ class PaymentLinkService
     }
 
     /**
+     *  Creat links of payments in company
      * @param $paymentLinkDTO PaymentLinkDTO
      * @return string
      */
@@ -59,7 +62,7 @@ class PaymentLinkService
                 'maxInstallmentCount' => $paymentLinkDTO->maxInstallmentCount ?? null,
                 'cycle' => $paymentLinkDTO->cycle ?? null
             ];
-            
+
 
             $currentDate = Carbon::now()->format('Y-m-d');
 
@@ -116,7 +119,6 @@ class PaymentLinkService
 
     }
 
-
     /**
      * List all thes links of payments a company
      * @param Request
@@ -158,5 +160,85 @@ class PaymentLinkService
         return $data;
     }
 
+    /**
+     * update in one link of payments
+     * @param Request
+     */
+    public function editPaymentLink(int $id, PaymentLinkEditDTO $paymentLinkDTO)
+    {
+
+        DB::beginTransaction();
+        try {
+
+            $empresaLinksPagamento = EmpresaLinksPagamento::findOrFail($id);
+
+            $empresaLinksPagamento->update([
+                'active' => $paymentLinkDTO->active,
+                'billingType' => $paymentLinkDTO->billingType,
+                'chargeType' => $paymentLinkDTO->chargeType,
+                'name' => $paymentLinkDTO->name,
+                'description' => $paymentLinkDTO->description,
+                'endDate' => $paymentLinkDTO->endDate,
+                'value' => $paymentLinkDTO->value,
+                'dueDateLimitDays' => $paymentLinkDTO->dueDateLimitDays,
+                'externalReference' => $paymentLinkDTO->externalReference,
+                'notificationEnabled' => $paymentLinkDTO->notificationEnabled,
+                'callback' => $paymentLinkDTO->callback,
+                'isAddressRequired' => $paymentLinkDTO->isAddressRequired,
+                'maxInstallmentCount' => $paymentLinkDTO->maxInstallmentCount,
+                'cycle' => $paymentLinkDTO->cycle,
+                'empresa_id' => $paymentLinkDTO->empresa_id,
+            ]);
+
+           $response = $this->updatePaymentLinkInAssas($empresaLinksPagamento, $paymentLinkDTO);
+
+            if ($response['status'] !== 'success') {
+                throw new \Exception('Erro ao atualizar no Assas');
+            }
+
+            DB::commit();
+            return [$empresaLinksPagamento, 200];
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return [['error' => $e->getMessage()], 500];
+        }
+    }
+
+    /**
+     * update in one link of payments of comapny in Assas
+     * @param Request
+     */
+    private function updatePaymentLinkInAssas(EmpresaLinksPagamento $empresaLinksPagamento, PaymentLinkEditDTO $paymentLinkDTO)
+    {
+        $apiUrl = $this->baseUrl . "/paymentLinks/{$empresaLinksPagamento->id_link_assas}";
+
+        $paymentlinkEdit =  [
+            'active' => $paymentLinkDTO->active,
+            'billingType' => $paymentLinkDTO->billingType,
+            'chargeType' => $paymentLinkDTO->chargeType,
+            'name' => $paymentLinkDTO->name,
+            'description' => $paymentLinkDTO->description,
+            'endDate' => $paymentLinkDTO->endDate,
+            'value' => $paymentLinkDTO->value,
+            'dueDateLimitDays' => $paymentLinkDTO->dueDateLimitDays,
+            'externalReference' => $paymentLinkDTO->externalReference,
+            'notificationEnabled' => $paymentLinkDTO->notificationEnabled,
+            'callback' => $paymentLinkDTO->callback,
+            'isAddressRequired' => $paymentLinkDTO->isAddressRequired,
+            'maxInstallmentCount' => $paymentLinkDTO->maxInstallmentCount,
+            'cycle' => $paymentLinkDTO->cycle,
+            'empresa_id' => $paymentLinkDTO->empresa_id,
+        ];
+
+        $response = $this->client->put($apiUrl, ['json' => $paymentlinkEdit]);
+
+        $data = json_decode($response->getBody()->getContents(), true);
+
+        if ($data['id']) {
+            return ['status' => 'success', 'data' => $data];
+        }
+
+        return ['status' => 'error', 'message' => $response->body()];
+    }
 
 }

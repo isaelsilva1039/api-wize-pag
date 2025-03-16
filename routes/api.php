@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
     Route::prefix('pagamentos')->group(function () {
         Route::get('payment-link', [\App\Http\Controllers\Api\ApiLinkPagamentoController\apiPaymentLinkController::class, 'listaLinksPagamento'])->middleware('auth:sanctum');
         Route::post('payment-link', [\App\Http\Controllers\Api\ApiLinkPagamentoController\apiPaymentLinkController::class, 'createLink'])->middleware('auth:sanctum');
+        Route::put('payment-link/{id}', [\App\Http\Controllers\Api\ApiLinkPagamentoController\apiPaymentLinkController::class, 'editLink'])->middleware('auth:sanctum');
     });
 
     Route::prefix('auth')->group(function () {
